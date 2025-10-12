@@ -50,6 +50,9 @@ tox -e py3.11-ansible2.18-mongo8-ubuntu24-default run
 
 # run all test in parallel
 tox run-parallel
+
+# run a specific group of test
+tox -f ansible2.19-default run-parallel
 ```
 
 - For iterative development and testing, the tox molecule environments are written to accept `molecule` arguments. This
@@ -118,6 +121,7 @@ git push ...
 ```
 
 ## Prereleases & Releases
+
 - Pushes to the main branch or creating a prerelease will automatically push to Galaxy's development server,
   <https://galaxy-dev.ansible.com/ui/standalone/roles/trfore/mongodb_install/>.
 - Releases are pushed to Galaxy when a new GitHub release is published.
