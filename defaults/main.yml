@@ -1,5 +1,5 @@
 ---
-mongodb_version: "7.0.23"
+mongodb_version: "7.0.25"
 mongodb_version_maj: '{{ mongodb_version | regex_search("^\d") }}'
 mongodb_version_maj_minor: '{{ mongodb_version | regex_search("^\d.\d") }}'
 mongodb_path_exec: /usr/bin
