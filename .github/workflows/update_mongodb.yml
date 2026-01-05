@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out codebase
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Check 'mongodb.version' file
         run: |
@@ -55,7 +55,7 @@ jobs:
 
       - name: Create pull request
         if: env.UPDATE_VERSION_FILE
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
           commit-message: update mongodb default version
