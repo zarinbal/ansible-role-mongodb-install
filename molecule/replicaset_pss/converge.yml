@@ -1,0 +1,29 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  vars:
+    mongodb_version: "{{ lookup('env', 'MONGODB_VERSION') }}"
+    mongodb_net_bindip: "0.0.0.0,127.0.0.1"
+    mongodb_security_authorization: "disabled"
+    mongodb_replica_set_enabled: true
+    mongodb_replica_set_name: "rs0"
+    mongodb_replica_set_topology: "pss"
+    mongodb_replica_set_members:
+      - "mongo1:27017"
+      - "mongo2:27017"
+      - "mongo3:27017"
+    mongodb_replica_set_initiator_host: "mongo1"
+
+  pre_tasks:
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 600
+      when: ansible_os_family == 'Debian'
+      changed_when: false
+
+  tasks:
+    - name: Include role
+      ansible.builtin.include_role:
+        name: "ansible-role-mongodb-install"

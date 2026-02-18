@@ -17,7 +17,7 @@ jobs:
           sudo bash .github/workflows/scripts/add_mongodb_repo.sh
 
           # get current and latest versions, update files if needed
-          VERSION=(7.0 8.0)
+          VERSION=(7.0 8.2)
           for i in "${VERSION[@]}"; do
               maj=${i%.*}
               latest=$(apt-cache show mongodb-org | grep -om1 "^Version:\s"${i}"\.[0-9]*$" | awk '{print $2}')
@@ -43,7 +43,7 @@ jobs:
               jq -n \
                   --arg v7 "$latest_v7" \
                   --arg v8 "$latest_v8" \
-                  '{"7.0": $v7, "8.0": $v8}' >mongodb.versions
+                  '{"7.0": $v7, "8.2": $v8}' >mongodb.versions
 
               echo "MongoDB version check complete, updated to latest versions"
           else

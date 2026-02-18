@@ -28,7 +28,10 @@ def test_config_file(host):
 def test_package_version(host):
     pkg = host.package("mongodb-org")
     assert pkg.is_installed
-    assert pkg.version == mongodb_version
+    if re.match(r"^\d+\.\d+$", mongodb_version):
+        assert pkg.version.startswith(mongodb_version + ".")
+    else:
+        assert pkg.version == mongodb_version
 
 
 def test_service_running_and_enabled(host):

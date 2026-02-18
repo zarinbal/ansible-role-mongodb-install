@@ -1,8 +1,18 @@
 ---
+- name: Build optional mongosh TLS arguments
+  ansible.builtin.set_fact:
+    mongodb_mongosh_tls_args: >-
+      {{
+        '--tls'
+        + (' --tlsCAFile ' + (mongodb_client_tls_ca_file | quote) if mongodb_client_tls_ca_file | length > 0 else '')
+        + (' --tlsCertificateKeyFile ' + (mongodb_client_tls_cert_key_file | quote) if mongodb_client_tls_cert_key_file | length > 0 else '')
+        if mongodb_client_tls_enabled | bool else ''
+      }}
+
 - name: Check whether admin user is already exist
   ansible.builtin.command: >
-    mongosh --quiet {{ '--ssl --host ' + mongodb_net_ssl_host if mongodb_net_ssl_mode == 'requireSSL' else '' }} -u {{ mongodb_user_admin_name }} \
-          -p {{ mongodb_user_admin_password }} --host {{ mongodb_net_bindip }} --port {{ mongodb_net_port }} --eval 'db.version()' admin
+    mongosh --quiet {{ mongodb_mongosh_tls_args }} -u {{ mongodb_user_admin_name | quote }} \
+          -p {{ mongodb_user_admin_password | quote }} --host {{ (mongodb_net_bindip.split(',') | map('replace', '0.0.0.0', '127.0.0.1') | list | first) }} --port {{ mongodb_net_port }} --eval 'db.version()' admin
   register: mongodb_user_admin_check
   changed_when: false
   check_mode: no
@@ -61,6 +71,9 @@
         roles: "{{ item.roles }}"
         login_host: "{{ mongodb_net_bindip.split(',') | map('replace', '0.0.0.0', '127.0.0.1') | list | first }}"
         login_port: "{{ mongodb_net_port | int }}"
+        ssl: "{{ mongodb_client_tls_enabled | bool }}"
+        ssl_ca_certs: "{{ mongodb_client_tls_ca_file if mongodb_client_tls_ca_file | length > 0 else omit }}"
+        ssl_certfile: "{{ mongodb_client_tls_cert_key_file if mongodb_client_tls_cert_key_file | length > 0 else omit }}"
       with_items:
         - { name: "{{ mongodb_user_admin_name }}", password: "{{ mongodb_user_admin_password }}", roles: "userAdminAnyDatabase" }
       no_log: "{{ disable_logging_for_auth }}"
@@ -77,6 +90,9 @@
         roles: "{{ item.roles }}"
         login_host: "{{ mongodb_net_bindip.split(',') | map('replace', '0.0.0.0', '127.0.0.1') | list | first }}"
         login_port: "{{ mongodb_net_port | int }}"
+        ssl: "{{ mongodb_client_tls_enabled | bool }}"
+        ssl_ca_certs: "{{ mongodb_client_tls_ca_file if mongodb_client_tls_ca_file | length > 0 else omit }}"
+        ssl_certfile: "{{ mongodb_client_tls_cert_key_file if mongodb_client_tls_cert_key_file | length > 0 else omit }}"
       with_items:
         - { name: "{{ mongodb_root_admin_name }}", password: "{{ mongodb_root_admin_password }}", roles: "root" }
       no_log: "{{ disable_logging_for_auth }}"
@@ -93,6 +109,9 @@
         roles: "{{ item.roles }}"
         login_host: "{{ mongodb_net_bindip.split(',') | map('replace', '0.0.0.0', '127.0.0.1') | list | first }}"
         login_port: "{{ mongodb_net_port | int }}"
+        ssl: "{{ mongodb_client_tls_enabled | bool }}"
+        ssl_ca_certs: "{{ mongodb_client_tls_ca_file if mongodb_client_tls_ca_file | length > 0 else omit }}"
+        ssl_certfile: "{{ mongodb_client_tls_cert_key_file if mongodb_client_tls_cert_key_file | length > 0 else omit }}"
       with_items:
         - { name: "{{ mongodb_root_backup_name }}", password: "{{ mongodb_root_backup_password }}", roles: "backup,clusterMonitor" }
       no_log: "{{ disable_logging_for_auth }}"
@@ -111,7 +130,9 @@
     login_password: "{{ mongodb_user_admin_password }}"
     login_port: "{{ mongodb_net_port | int }}"
     login_host: "{{ mongodb_net_bindip | default('localhost') }}"
-    ssl: "{{ True if mongodb_net_ssl_mode == 'requireSSL' else False }}"
+    ssl: "{{ mongodb_client_tls_enabled | bool }}"
+    ssl_ca_certs: "{{ mongodb_client_tls_ca_file if mongodb_client_tls_ca_file | length > 0 else omit }}"
+    ssl_certfile: "{{ mongodb_client_tls_cert_key_file if mongodb_client_tls_cert_key_file | length > 0 else omit }}"
   with_items:
     - "{{ mongodb_users | default([]) }}"
   no_log: "{{ disable_logging_for_auth }}"

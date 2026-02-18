@@ -1,5 +1,6 @@
 import os
 import pytest
+import re
 from pathlib import Path
 
 
@@ -20,7 +21,11 @@ def test_config_file(host):
 def test_package_version(host):
     pkg = host.package("mongodb-org")
     assert pkg.is_installed
-    assert pkg.version == os.environ["MOLECULE_MONGODB_VERSION"]
+    mongodb_version = os.environ["MOLECULE_MONGODB_VERSION"]
+    if re.match(r"^\d+\.\d+$", mongodb_version):
+        assert pkg.version.startswith(mongodb_version + ".")
+    else:
+        assert pkg.version == mongodb_version
 
 
 @pytest.mark.parametrize(

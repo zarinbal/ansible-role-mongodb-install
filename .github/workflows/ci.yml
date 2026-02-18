@@ -44,8 +44,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro: [centos9, debian12, ubuntu2404]
-        version: ["8.0.19"]
+        distro: [centos9, debian12, debian13, ubuntu2404]
+        version: ["8.2.5"]
         molecule_scenario: ["-s default"]
     uses: ./.github/workflows/test.yml
     with:
@@ -63,9 +63,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro: [centos9, debian12, ubuntu2404]
-        version: ["8.0.19"]
+        distro: [centos9, debian12, debian13, ubuntu2404]
+        version: ["8.2.5"]
         molecule_scenario: ["-s thp"]
+    uses: ./.github/workflows/test.yml
+    with:
+      distro: ${{ matrix.distro }}
+      version: ${{ matrix.version }}
+      molecule_scenario: ${{ matrix.molecule_scenario }}
+
+  v8_replicaset_test:
+    needs:
+      - lint_ansible
+      - lint_python
+      - v8_test
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [debian13]
+        version: ["8.2.5"]
+        molecule_scenario: ["-s replicaset_pss", "-s replicaset_psa"]
     uses: ./.github/workflows/test.yml
     with:
       distro: ${{ matrix.distro }}
@@ -82,6 +99,7 @@ jobs:
       - v7_test
       - v8_test
       - v8_test_thp
+      - v8_replicaset_test
     steps:
       - name: All jobs passed
         if: ${{ !(contains(needs.*.result, 'failure')) }}

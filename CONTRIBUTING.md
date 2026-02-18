@@ -91,7 +91,7 @@ tox -e py3.11-ansible2.18-mongo8-ubuntu24-default run -- verify -s default
 MOLECULE_IMAGE='trfore/docker-debian13-systemd' tox -e py-ansible2.17-mongo8-debian12-default run
 
 # test a specific version of MongoDB
-MONGODB_VERSION='8.0.0' tox -e py-ansible2.17-mongo8-debian12-default run
+MONGODB_VERSION='8.2.5' tox -e py-ansible2.17-mongo8-debian12-default run
 ```
 
 ### Manually using Ansible Molecule

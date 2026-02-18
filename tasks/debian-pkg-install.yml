@@ -1,7 +1,16 @@
-- name: Add MongoDB gpg signing key
-  ansible.builtin.apt_key:
+- name: Download MongoDB gpg key
+  ansible.builtin.get_url:
     url: "{{ mongodb_gpg_key }}"
-    state: present
+    dest: "/usr/share/keyrings/mongodb-server-{{ mongodb_version_maj_minor }}.asc"
+    mode: "0644"
+
+- name: De-armour MongoDB gpg key
+  ansible.builtin.command: >
+    gpg --dearmor --yes
+    --output /usr/share/keyrings/mongodb-server-{{ mongodb_version_maj_minor }}.gpg
+    /usr/share/keyrings/mongodb-server-{{ mongodb_version_maj_minor }}.asc
+  args:
+    creates: "/usr/share/keyrings/mongodb-server-{{ mongodb_version_maj_minor }}.gpg"
 
 - name: Add MongoDB repository into sources list
   ansible.builtin.apt_repository:
@@ -9,11 +18,19 @@
     repo: "{{ mongodb_repository }}"
     state: present
 
+- name: Set MongoDB apt package list
+  ansible.builtin.set_fact:
+    mongodb_apt_packages: >-
+      {{
+        ['mongodb-org=' + mongodb_version]
+        if (mongodb_version is regex('^\\d+\\.\\d+\\.\\d+$'))
+        else ['mongodb-org']
+      }}
+
 - name: Install MongoDB
   ansible.builtin.apt:
     update_cache: true
-    name:
-      - "mongodb-org={{ mongodb_version }}"
+    name: "{{ mongodb_apt_packages }}"
     state: present
   register: mongodb_pkg_install
   notify: Enable MongoDB

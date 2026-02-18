@@ -1,0 +1,106 @@
+- name: Validate replica set topology value
+  ansible.builtin.assert:
+    that:
+      - mongodb_replica_set_topology in ["pss", "psa"]
+    fail_msg: "mongodb_replica_set_topology must be one of: pss, psa"
+
+- name: Validate replica set data members
+  ansible.builtin.assert:
+    that:
+      - mongodb_replica_set_members | length > 0
+      - mongodb_replica_set_members | select("match", "^[^:]+:\\d+$") | list | length == mongodb_replica_set_members | length
+    fail_msg: "mongodb_replica_set_members must be a non-empty list in host:port format"
+
+- name: Validate PSS topology members
+  ansible.builtin.assert:
+    that:
+      - mongodb_replica_set_members | length >= 3
+    fail_msg: "PSS requires at least 3 data-bearing members in mongodb_replica_set_members"
+  when: mongodb_replica_set_topology == "pss"
+
+- name: Validate PSA topology members
+  ansible.builtin.assert:
+    that:
+      - mongodb_replica_set_members | length == 2
+      - mongodb_replica_set_arbiter | length > 0
+      - mongodb_replica_set_arbiter is match("^[^:]+:\\d+$")
+    fail_msg: "PSA requires exactly 2 data members and mongodb_replica_set_arbiter in host:port format"
+  when: mongodb_replica_set_topology == "psa"
+
+- name: Set replica set initiator host
+  ansible.builtin.set_fact:
+    mongodb_replica_set_initiator_host_effective: >-
+      {{ mongodb_replica_set_initiator_host
+      if mongodb_replica_set_initiator_host | length > 0
+      else (mongodb_replica_set_members | first).split(':') | first }}
+
+- name: Build mongosh authentication arguments
+  ansible.builtin.set_fact:
+    mongodb_replica_set_auth_args: >-
+      {{ '-u ' + (mongodb_root_admin_name | quote) + ' -p ' + (mongodb_root_admin_password | quote) + ' --authenticationDatabase admin'
+      if mongodb_security_authorization == 'enabled' else '' }}
+
+- name: Build mongosh TLS arguments for replica set operations
+  ansible.builtin.set_fact:
+    mongodb_replica_set_tls_args: >-
+      {{
+        '--tls'
+        + (' --tlsCAFile ' + (mongodb_client_tls_ca_file | quote) if mongodb_client_tls_ca_file | length > 0 else '')
+        + (' --tlsCertificateKeyFile ' + (mongodb_client_tls_cert_key_file | quote) if mongodb_client_tls_cert_key_file | length > 0 else '')
+        if mongodb_client_tls_enabled | bool else ''
+      }}
+
+- name: Initialize or reconfigure replica set
+  ansible.builtin.shell: |
+    mongosh --quiet {{ mongodb_replica_set_auth_args }} {{ mongodb_replica_set_tls_args }} --host 127.0.0.1 --port {{ mongodb_net_port }} --eval '
+      const rsName = "{{ mongodb_replica_set_name }}";
+      const topology = "{{ mongodb_replica_set_topology }}";
+      const dataMembers = {{ mongodb_replica_set_members | to_json }};
+      const arbiter = "{{ mongodb_replica_set_arbiter }}";
+
+      const expectedHosts = topology === "psa" ? dataMembers.concat([arbiter]) : dataMembers;
+      const members = dataMembers.map((host, idx) => ({ _id: idx, host: host }));
+      if (topology === "psa") {
+        members.push({ _id: dataMembers.length, host: arbiter, arbiterOnly: true });
+      }
+      const expectedConfig = { _id: rsName, members: members };
+
+      function isExpectedTopology(statusMembers) {
+        const names = (statusMembers || []).map(m => m.name);
+        const missing = expectedHosts.filter(h => !names.includes(h));
+        const hasArbiter = (statusMembers || []).some(m => m.arbiterOnly === true);
+        if (missing.length > 0) return false;
+        if (topology === "psa" && !hasArbiter) return false;
+        if (topology === "pss" && hasArbiter) return false;
+        return true;
+      }
+
+      let status = null;
+      try {
+        status = rs.status();
+      } catch (e) {}
+
+      if (status && status.set === rsName && isExpectedTopology(status.members)) {
+        print("already-configured");
+        quit(0);
+      }
+
+      try {
+        if (status && status.set === rsName) {
+          rs.reconfig(expectedConfig, { force: true });
+          print("reconfigured");
+        } else {
+          rs.initiate(expectedConfig);
+          print("initiated");
+        }
+      } catch (e) {
+        print("error: " + e);
+        quit(1);
+      }
+    '
+  args:
+    executable: /bin/bash
+  register: mongodb_replica_set_result
+  changed_when: "'already-configured' not in mongodb_replica_set_result.stdout"
+  no_log: "{{ disable_logging_for_auth | default(false) }}"
+  when: inventory_hostname == mongodb_replica_set_initiator_host_effective

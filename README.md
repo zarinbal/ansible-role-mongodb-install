@@ -4,7 +4,7 @@
 [![Prerelease](https://github.com/trfore/ansible-role-mongodb-install/actions/workflows/prerelease.yml/badge.svg)](https://github.com/trfore/ansible-role-mongodb-install/actions/workflows/prerelease.yml)
 [![Galaxy Release](https://github.com/trfore/ansible-role-mongodb-install/actions/workflows/release.yml/badge.svg)](https://github.com/trfore/ansible-role-mongodb-install/actions/workflows/release.yml)
 
-This role installs the MongoDB Community edition server metapackage, `mongodb-org`, via the OS's package manager. It currently defaults to installing the **latest release from version 7**, you can install a newer major version by setting `mongodb_version: 8.0.19`, see 'Tested Platforms and Versions' section for a compatibility matrix.
+This role installs the MongoDB Community edition server metapackage, `mongodb-org`, via the OS's package manager. It currently defaults to `mongodb_version: 8.2.5`, while still allowing major/minor tracking (for example, `mongodb_version: 8.2`) or exact package pinning (for example, `mongodb_version: 8.2.5`), see 'Tested Platforms and Versions' section for a compatibility matrix.
 
 See [Example Playbooks](#example-playbooks) for working examples. **The default settings do not configure the server**, it uses the default configuration values and minimal recommended `ulimit` settings. Its recommended to configure the server for production use, for details see: https://www.mongodb.com/docs/manual/administration/production-notes/
 
@@ -36,10 +36,10 @@ collections:
 
 ## Tested Platforms and Versions
 
-### MongoDB Community `8.0.19`
+### MongoDB Community `8.2.5`
 
 - CentOS Stream 9
-- Debian 12
+- Debian 12 & 13
 - Ubuntu 22.04 & 24.04
 
 ### MongoDB Community `7.0.30`
@@ -87,7 +87,7 @@ Common variables are listed below, along with default values (see `defaults/main
 
 | Variable                                   | Default    | Description                                                                                               | Required  |
 | ------------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------- | --------- |
-| mongodb_version                            | `7.0.30`   | MongoDB Community stable releases `v4.4`, `v5`, `v6`, `v7`, `v8`                                          | No        |
+| mongodb_version                            | `8.2.5`    | MongoDB Community stable releases `v4.4`, `v5`, `v6`, `v7`, `v8`                                          | No        |
 | mongodb_version_maj                        | Automatic  | Extracts major value from `mongodb_version`                                                               | Automatic |
 | mongodb_version_maj_minor                  | Automatic  | Extracts major and minor values from `mongodb_version`                                                    | Automatic |
 | mongodb_transparent_hugepages_optimization | `false`    | Disable Transparent HugePages (THP) for MongoDB ≤ 7 or enable Transparent HugePages (THP) for MongoDB ≥ 8 | No        |
@@ -117,6 +117,25 @@ Set these to automatically create users during provisioning. If `mongodb_securit
 | mongodb_root_admin_password  | `passw01d`   | Root user password                                              | No       |
 | mongodb_root_backup_name     | `BackupUser` | Backup user name                                                | No       |
 | mongodb_root_backup_password | `passw01d`   | Backup user password                                            | No       |
+| mongodb_client_tls_enabled   | `false`      | Enable TLS for client-side auth/user/replica-set mongosh operations | No   |
+| mongodb_client_tls_ca_file   | `""`         | CA file path used when `mongodb_client_tls_enabled: true`       | No       |
+| mongodb_client_tls_cert_key_file | `""`     | Client certificate+key PEM used when mTLS is required           | No       |
+
+### Replica Set Variables
+
+Use these when deploying multi-node replica sets with this role.
+
+| Variable                     | Default | Description                                                                 | Required |
+| ---------------------------- | ------- | --------------------------------------------------------------------------- | -------- |
+| mongodb_replica_set_enabled  | `false` | Boolean, enable replica set configuration                                   | No       |
+| mongodb_replica_set_name     | `rs0`   | Replica set name written to `mongod.conf`                                   | No       |
+| mongodb_replica_set_topology | `pss`   | Replica set topology, one of `pss` or `psa`                                 | No       |
+| mongodb_replica_set_members  | `[]`    | Data-bearing members in `host:port` format                                  | Yes\*    |
+| mongodb_replica_set_arbiter  | `""`    | Arbiter member in `host:port` format, required when topology is `psa`       | Yes\*\*  |
+| mongodb_replica_set_initiator_host | `""` | Optional inventory hostname where `rs.initiate`/`rs.reconfig` is executed | No       |
+
+\* Required when `mongodb_replica_set_enabled: true`  
+\*\* Required when `mongodb_replica_set_enabled: true` and `mongodb_replica_set_topology: psa`
 
 ### Systemd Resource Limits
 
@@ -159,11 +178,49 @@ Set these to automatically create users during provisioning. If `mongodb_securit
       role: trfore.mongodb_install
 ```
 
+- Replica set topology examples
+
+  Client certificate authentication for node bootstrap is optional and disabled by default. Set `mongodb_client_tls_enabled: true` and provide `mongodb_client_tls_ca_file` (and `mongodb_client_tls_cert_key_file` when required) to enable it.
+
+```yaml
+# PSS (3 data-bearing members)
+- hosts: mongo_nodes
+  become: true
+  vars:
+    mongodb_security_authorization: "enabled"
+    mongodb_replica_set_enabled: true
+    mongodb_replica_set_name: rs0
+    mongodb_replica_set_topology: pss
+    mongodb_replica_set_members:
+      - "mongo1.example.com:27017"
+      - "mongo2.example.com:27017"
+      - "mongo3.example.com:27017"
+  roles:
+    - role: trfore.mongodb_install
+```
+
+```yaml
+# PSA (2 data-bearing members + 1 arbiter)
+- hosts: mongo_nodes
+  become: true
+  vars:
+    mongodb_security_authorization: "enabled"
+    mongodb_replica_set_enabled: true
+    mongodb_replica_set_name: rs0
+    mongodb_replica_set_topology: psa
+    mongodb_replica_set_members:
+      - "mongo1.example.com:27017"
+      - "mongo2.example.com:27017"
+    mongodb_replica_set_arbiter: "mongo-arbiter.example.com:27017"
+  roles:
+    - role: trfore.mongodb_install
+```
+
 ```yaml
 - hosts: servers
   become: true
   vars:
-    mongodb_version: "8.0.19"
+    mongodb_version: "8.2.5"
   roles:
     - name: Install MongoDB
       role: trfore.mongodb_install
@@ -176,7 +233,7 @@ Set these to automatically create users during provisioning. If `mongodb_securit
   become: true
   vars:
     hostname: "mongodb-test"
-    mongodb_version: "8.0.19"
+    mongodb_version: "8.2.5"
     mongodb_net_bindip: "127.0.30.1"
     mongodb_net_port: "27017"
 

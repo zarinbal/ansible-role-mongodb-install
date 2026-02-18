@@ -1,7 +1,7 @@
 ---
-mongodb_version: "7.0.30"
-mongodb_version_maj: '{{ mongodb_version | regex_search("^\d") }}'
-mongodb_version_maj_minor: '{{ mongodb_version | regex_search("^\d.\d") }}'
+mongodb_version: "8.2.5"
+mongodb_version_maj: '{{ mongodb_version | regex_search("^\d+") }}'
+mongodb_version_maj_minor: '{{ mongodb_version | regex_search("^\d+\.\d+") }}'
 mongodb_path_exec: /usr/bin
 
 # package install variables
@@ -27,7 +27,7 @@ mongodb_security_javascript_enabled: true       # Enable/Disable javascript
 mongodb_user_update_password: "on_create"       # MongoDB user password update default policy
 
 # custom config options
-mongodb_config:
+mongodb_config: {}
 
 mongodb_storage_journal_enabled: true          # Enable/Disable journal
 
@@ -42,9 +42,22 @@ mongodb_root_admin_password: passw01d          # Password for the user for root 
 mongodb_root_backup_name: BackupUser           # Name of the user for backup tasks
 mongodb_root_backup_password: passw01d         # Password for the user for backup tasks
 
+# optional client TLS for mongosh/module authentication calls
+mongodb_client_tls_enabled: false
+mongodb_client_tls_ca_file: ""
+mongodb_client_tls_cert_key_file: ""
+
 # auth initialization variables
 mongodb_pymongo_pip_version: null              # Set PyMongo Version, default will install latest
 mongodb_pymongo_package: python3-pymongo
 
 # THP variables
 mongodb_transparent_hugepages_optimization: false
+
+# replica set variables
+mongodb_replica_set_enabled: false
+mongodb_replica_set_name: rs0
+mongodb_replica_set_topology: pss # allowed values: pss, psa
+mongodb_replica_set_members: [] # required when enabled, format: ["host1:27017", "host2:27017", ...]
+mongodb_replica_set_arbiter: "" # required when topology=psa, format: "host3:27017"
+mongodb_replica_set_initiator_host: "" # optional inventory hostname used to run rs.initiate/rs.reconfig

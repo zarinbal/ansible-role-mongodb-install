@@ -103,7 +103,21 @@ security:
 
 #operationProfiling:
 
+{% if mongodb_config['replication'] is defined and mongodb_config['replication'] is iterable %}
+replication:
+{% for key, value in mongodb_config['replication'].items() %}
+{% if value is mapping %}
+  {{ key }}:
+{% for subkey, subval in value.items() %}
+    {{ subkey }}: {{ subval }}
+{% endfor %}
+{% else %}
+  {{ key }}: {{ value }}
+{% endif %}
+{% endfor %}
+{% else %}
 #replication:
+{% endif %}
 
 #sharding:
 

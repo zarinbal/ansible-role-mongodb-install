@@ -24,6 +24,11 @@
 - name: Load OS specific variables
   ansible.builtin.include_vars: "{{ ansible_os_family | lower }}.yml"
 
+- name: Ensure replica set name exists in mongod config
+  ansible.builtin.set_fact:
+    mongodb_config: "{{ mongodb_config | default({}) | combine({'replication': {'replSetName': mongodb_replica_set_name}}, recursive=True) }}"
+  when: mongodb_replica_set_enabled | bool
+
 - name: Install MongoDB dependencies
   ansible.builtin.package:
     name: "{{ mongodb_dep_pkg }}"
@@ -60,3 +65,25 @@
 - name: Enable Security Authorization and Create Users
   ansible.builtin.include_tasks: auth_init.yml
   when: mongodb_security_authorization == "enabled"
+
+- name: Update mongod.conf for replica set without auth init
+  ansible.builtin.template:
+    src: mongod.conf.j2
+    dest: /etc/mongod.conf
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - Restart MongoDB
+    - Wait for MongoDB on localhost
+  when:
+    - mongodb_replica_set_enabled | bool
+    - mongodb_security_authorization != "enabled"
+
+- name: Flush all handlers before replica set init
+  ansible.builtin.meta: flush_handlers
+  when: mongodb_replica_set_enabled | bool
+
+- name: Configure replica set topology
+  ansible.builtin.include_tasks: replica_set.yml
+  when: mongodb_replica_set_enabled | bool

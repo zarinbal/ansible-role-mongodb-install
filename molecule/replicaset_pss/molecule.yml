@@ -4,8 +4,30 @@ dependency:
 driver:
   name: docker
 platforms:
-  - image: ${MOLECULE_IMAGE:-trfore/docker-ubuntu2204-systemd}
-    name: ${MOLECULE_NAME:-instance}
+  - image: ${MOLECULE_IMAGE:-trfore/docker-debian13-systemd}
+    name: mongo1
+    command: ${MOLECULE_COMMAND:-""}
+    tmpfs:
+      - /run
+      - /tmp
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+  - image: ${MOLECULE_IMAGE:-trfore/docker-debian13-systemd}
+    name: mongo2
+    command: ${MOLECULE_COMMAND:-""}
+    tmpfs:
+      - /run
+      - /tmp
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+  - image: ${MOLECULE_IMAGE:-trfore/docker-debian13-systemd}
+    name: mongo3
     command: ${MOLECULE_COMMAND:-""}
     tmpfs:
       - /run
@@ -27,23 +49,6 @@ verifier:
     p: "no:pytest-ansible"
     verbose: true
 scenario:
-  create_sequence:
-    - dependency
-    - create
-  check_sequence:
-    - dependency
-    - destroy
-    - create
-    - converge
-    - check
-    - destroy
-  converge_sequence:
-    - dependency
-    - create
-    - converge
-  destroy_sequence:
-    - dependency
-    - destroy
   test_sequence:
     - dependency
     - destroy
